@@ -164,7 +164,6 @@ class View(Frame):
         for widget in self.winfo_children():
             widget.destroy()
 
-        # Display the title depending on whether we are editing or creating a model
         title_text = f"Editing Model: {model_name}"
         Label(
             self,
@@ -201,7 +200,6 @@ class View(Frame):
             command=self.go_back_to_home
         ).pack(pady=10)
 
-        # Refresh the profile list
         self.refresh_profile_list()
 
     def open_add_individual_form(self):
@@ -273,11 +271,14 @@ class View(Frame):
         form.after(100, lambda: canvas.configure(scrollregion=canvas.bbox("all")))
 
     def refresh_profile_list(self):
+        # Clear the current profile list from the frame
         for widget in self.profile_list_frame.winfo_children():
             widget.destroy()
 
+          # Retrieve the updated list of profiles
         profiles = self.controller.get_all_profiles()
 
+        # If no profiles exist, show a message
         if not profiles:
             Label(
                 self.profile_list_frame,
@@ -287,9 +288,11 @@ class View(Frame):
             ).pack()
             return
 
+        # Otherwise, render the profile cards
         self.render_draggable_profile_cards(profiles)
 
     def render_draggable_profile_cards(self, profiles):
+        # Store card references for later use (e.g., saving positions)
         self.card_refs = []
 
         for idx, profile in enumerate(profiles):
@@ -297,13 +300,11 @@ class View(Frame):
             preview_fields = [(k, v) for k, v in profile.items() if k != "position"][:2]
             preview_text = "\n".join(f"{k}: {v}" for k, v in preview_fields)
 
-            # Use saved position if valid, else fall back to default grid position
-            position = profile.get("position")
-            if isinstance(position, list) and len(position) == 2:
-                x, y = position
-            else:
-                x, y = 20 + (idx % 3) * 270, 20 + (idx // 3) * 120
+            # Use saved position or default grid position
+            position = profile.get("position", [20 + (idx % 3) * 270, 20 + (idx // 3) * 120])
+            x, y = position
 
+            # Create the profile card frame
             card = Frame(
                 self.profile_list_frame,
                 bg="#2a2a3c",
@@ -317,6 +318,7 @@ class View(Frame):
             card.place(x=x, y=y)
             self.card_refs.append(card)
 
+            # Add profile preview text
             label = Label(
                 card,
                 text=preview_text or "No Data Available.",
@@ -329,6 +331,7 @@ class View(Frame):
             )
             label.pack(pady=5, fill="x")
 
+            # Add a button to view the profile details
             btn = ttk.Button(
                 card,
                 text="View Details",
@@ -338,8 +341,8 @@ class View(Frame):
             )
             btn.pack(pady=5)
 
+            # Make the profile card draggable
             self.make_draggable(card)
-
 
     def make_draggable(self, widget):
         def on_start_drag(event):
@@ -392,6 +395,22 @@ class View(Frame):
                 bg="#1e1e2f"
             ).pack(pady=5)
 
+        # Update Button
+        ttk.Button(
+            detail_win,
+            text="Update Profile",
+            style="MiniBlue.TButton",
+            command=lambda: [detail_win.destroy(), self.open_update_individual_form(profile)],
+        ).pack(pady=10)
+
+        # Delete Button
+        ttk.Button(
+            detail_win,
+            text="Delete Profile",
+            style="Danger.TButton",
+            command=lambda: [detail_win.destroy(), self.delete_individual(profile)],
+        ).pack(pady=10)
+
     def save_card_positions(self):
         """Save the positions of all cards along with profile data and model name to the JSON file."""
         profiles = self.controller.get_all_profiles()
@@ -410,6 +429,89 @@ class View(Frame):
         # Save the updated model data
         self.controller.save_model_data(model_data)
         messagebox.showinfo("Saved", "Card Positions and Model Data Saved Successfully.")
+    
+    def open_update_individual_form(self, profile):
+        form = Toplevel(self)
+        form.title("Update Individual")
+        form.geometry("320x600")
+        form.configure(bg="#1e1e2f")
+
+        container = Frame(form, bg="#1e1e2f")
+        container.pack(fill=BOTH, expand=True)
+
+        canvas = Canvas(container, bg="#1e1e2f", highlightthickness=0)
+        canvas.pack(side=LEFT, fill=BOTH, expand=True)
+
+        scrollbar = Scrollbar(container, orient=VERTICAL, command=canvas.yview)
+        scrollbar.pack(side=RIGHT, fill=Y)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        form_frame = Frame(canvas, bg="#1e1e2f")
+        canvas.create_window((0, 0), window=form_frame, anchor="nw")
+
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        form_frame.bind("<Configure>", on_frame_configure)
+
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind_all("<MouseWheel>", on_mousewheel)
+
+        Label(form_frame, text="Update Individual", font=("Segoe UI", 16, "bold"), fg="white", bg="#1e1e2f").pack(pady=(15, 5), anchor="w", padx=20)
+
+        fields = [k for k in profile.keys() if k != "position"]
+        entries = {}
+
+        for field in fields:
+            Label(form_frame, text=field, font=("Segoe UI", 11), fg="white", bg="#1e1e2f").pack(anchor="w", padx=20, pady=(10, 0))
+            entry = Entry(form_frame, font=("Segoe UI", 11), width=28)
+            entry.insert(0, profile[field])
+            entry.pack(padx=20, pady=(0, 10), anchor="w")
+            entries[field] = entry
+
+        # Add new field support
+        Label(form_frame, text="Add New Field:", font=("Segoe UI", 11), fg="white", bg="#1e1e2f").pack(anchor="w", padx=20, pady=(10, 0))
+        new_field_entry = Entry(form_frame, font=("Segoe UI", 11), width=28)
+        new_field_entry.pack(padx=20, pady=5, anchor="w")
+
+        def add_field():
+            new_field = new_field_entry.get().strip()
+            if new_field and new_field not in entries:
+                Label(form_frame, text=new_field, font=("Segoe UI", 11), fg="white", bg="#1e1e2f").pack(anchor="w", padx=20, pady=(10, 0))
+                entry = Entry(form_frame, font=("Segoe UI", 11), width=28)
+                entry.pack(padx=20, pady=(0, 10), anchor="w")
+                entries[new_field] = entry
+                new_field_entry.delete(0, END)
+
+        ttk.Button(form_frame, text="Add Field", style="MiniBlue.TButton", command=add_field).pack(padx=20, pady=10, anchor="w")
+
+        # Save updates
+        def save_updated_profile():
+            updated_data = {field: entries[field].get() for field in entries}
+            updated_data["position"] = profile.get("position", [20, 20])  # Preserve existing position if any
+            self.controller.update_individual(profile, updated_data)
+            form.destroy()
+            self.refresh_profile_list()
+
+        ttk.Button(form_frame, text="Save", style="MiniBlue.TButton", command=save_updated_profile).pack(padx=20, pady=20, anchor="w")
+
+        form.after(100, lambda: canvas.configure(scrollregion=canvas.bbox("all")))
+
+
+    def delete_individual(self, profile):
+        confirm = messagebox.askyesno("Confirm Delete", "Are you Sure you Want to Delete This Profile?")
+        if confirm:
+            # Call the controller to remove the profile from the model (JSON)
+            self.controller.delete_individual_from_model(profile)
+
+            # Remove the card reference from the list (self.card_refs)
+            self.card_refs = [card for card in self.card_refs if card not in profile]
+
+            # Refresh the profile list to reflect the deletion
+            self.refresh_profile_list()
+
+            # Notify the user that the profile was deleted
+            messagebox.showinfo("Deleted", "Profile Deleted Successfully.")
 
     def go_back_to_home(self):
         """Handle the back navigation to home screen."""
