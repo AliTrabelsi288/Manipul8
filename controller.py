@@ -52,5 +52,15 @@ class Controller:
         self.model.org_data = model_data
         self.model.save()
 
+    def web_scraper(self, url):
+        # Call the model's web_scraper method to scrape the data
+        scraped_data = self.model.web_scraper(url)
+
+        if scraped_data:
+            # If scraping is successful, return the data to the view
+            return scraped_data
+        else:
+            return "Failed to Scrape the Page or No Data Found."
+
     def handle_simulate_button(self):
         messagebox.showinfo("Simulation", "Simulation functionality not implemented yet.")

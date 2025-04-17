@@ -1,11 +1,11 @@
 import json
-from tkinter import Frame, Label, Toplevel, Entry, Button, Canvas, Scrollbar, BOTH, LEFT, RIGHT, Y, VERTICAL, END, messagebox
+from tkinter import Frame, Label, Toplevel, Entry, Button, Canvas, Scrollbar, BOTH, LEFT, RIGHT, Y, VERTICAL, END, messagebox, FLAT, NORMAL, DISABLED, Text, WORD
 from tkinter import ttk
 from tkinter import filedialog
 
 class View(Frame):
     def __init__(self, parent, os):
-        super().__init__(parent, width=800, height=600, bg="#1e1e2f")
+        super().__init__(parent, width=900, height=700, bg="#1e1e2f")
         self.controller = None
         self.os = os
         self.pack_propagate(False)
@@ -24,12 +24,20 @@ class View(Frame):
                         foreground="white",
                         padding=15)
         style.map("Blue.TButton", background=[('active', '#1565C0')])
+
         style.configure("MiniBlue.TButton",
                         font=("Segoe UI", 12, "bold"),
                         background="#1976D2",
                         foreground="white",
                         padding=10)
         style.map("MiniBlue.TButton", background=[('active', '#1565C0')])
+
+        style.configure("MiniRed.TButton",
+                    font=("Segoe UI", 12, "bold"),
+                    background="#D32F2F",
+                    foreground="white",
+                    padding=10)
+        style.map("MiniRed.TButton", background=[('active', '#B71C1C')])
 
     def build_home_screen(self):
         for widget in self.winfo_children():
@@ -159,57 +167,71 @@ class View(Frame):
         self.build_home_screen()
 
     def show_model_editor(self, model_name):
-        """Show UI for editing an existing model or creating a new one."""
-        # Clear the current screen
         for widget in self.winfo_children():
             widget.destroy()
 
-        title_text = f"Editing Model: {model_name}"
-        Label(
-            self,
-            text=title_text,
-            font=("Segoe UI", 24, "bold"),
-            fg="white",
-            bg="#1e1e2f"
-        ).pack(pady=(20, 10))
+        # Main container
+        main_container = Frame(self, bg="#1e1e2f")
+        main_container.pack(fill="both", expand=True)
 
-        # Button to add a new individual
+        # Sidebar (Navigation Bar)
+        sidebar = Frame(main_container, bg="#2b2b40", width=150)
+        sidebar.pack(side="left", fill="y")
+
+        Label(
+            sidebar,
+            text=f"Model: {model_name}",
+            font=("Segoe UI", 14, "bold"),
+            fg="white",
+            bg="#2b2b40",
+            wraplength=180,
+            justify="center"
+        ).pack(pady=(20, 30))
+
+        # Navigation buttons
         ttk.Button(
-            self,
+            sidebar,
             text="Add Individual",
             style="Blue.TButton",
             command=self.open_add_individual_form
-        ).pack(pady=10)
+        ).pack(pady=10, padx=10, fill="x")
 
         ttk.Button(
-            self,
+            sidebar,
             text="Save Positions",
             style="Blue.TButton",
             command=self.save_card_positions
-        ).pack(pady=10)
+        ).pack(pady=10, padx=10, fill="x")
 
-        # Frame to display the list of profiles
-        self.profile_list_frame = Frame(self, bg="#1e1e2f")
-        self.profile_list_frame.pack(pady=10, fill="both", expand=True)
-
-        # Button to go back to the home page
         ttk.Button(
-            self,
+            sidebar,
+            text="Web Scraper",
+            style="Blue.TButton",
+            command=self.web_scaper
+        ).pack(pady=10, padx=10, fill="x")
+
+        ttk.Button(
+            sidebar,
             text="Back to Home",
             style="Blue.TButton",
             command=self.go_back_to_home
-        ).pack(pady=10)
+        ).pack(pady=(300, 10), padx=10, fill="x")
+
+        # Main content area for profile cards
+        content_area = Frame(main_container, bg="#1e1e2f")
+        content_area.pack(side="left", fill="both", expand=True)
+
+        self.profile_list_frame = Frame(content_area, bg="#1e1e2f")
+        self.profile_list_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
         self.refresh_profile_list()
 
     def open_add_individual_form(self):
-        """Form to add a new person to the model."""
         form = Toplevel(self)
         form.title("Add Individual")
-        form.geometry("320x600")
+        form.geometry("400x600")
         form.configure(bg="#1e1e2f")
 
-        # Scrollable canvas setup
         container = Frame(form, bg="#1e1e2f")
         container.pack(fill=BOTH, expand=True)
 
@@ -218,57 +240,99 @@ class View(Frame):
 
         scrollbar = Scrollbar(container, orient=VERTICAL, command=canvas.yview)
         scrollbar.pack(side=RIGHT, fill=Y)
-
         canvas.configure(yscrollcommand=scrollbar.set)
 
         form_frame = Frame(canvas, bg="#1e1e2f")
         canvas.create_window((0, 0), window=form_frame, anchor="nw")
 
-        # Scroll update function
         def on_frame_configure(event):
             canvas.configure(scrollregion=canvas.bbox("all"))
-
         form_frame.bind("<Configure>", on_frame_configure)
 
         def on_mousewheel(event):
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
         canvas.bind_all("<MouseWheel>", on_mousewheel)
 
-        # Title
-        Label(form_frame, text="Add New Individual", font=("Segoe UI", 16, "bold"), fg="white", bg="#1e1e2f").pack(pady=(15, 5), anchor="w", padx=20)
+        Label(
+            form_frame,
+            text="➕ Add New Individual",
+            font=("Segoe UI", 18, "bold"),
+            fg="white",
+            bg="#1e1e2f"
+        ).pack(pady=(20, 10), padx=20, anchor="w")
+
+        Label(
+            form_frame,
+            text="New Field Name",
+            font=("Segoe UI", 11, "bold"),
+            fg="#cccccc",
+            bg="#1e1e2f"
+        ).pack(pady=(10, 0), padx=20, anchor="w")
+
+        field_name_entry = Entry(
+            form_frame,
+            font=("Segoe UI", 11),
+            width=28,
+            relief=FLAT,
+            highlightthickness=1,
+            highlightbackground="#3c3c4e",
+            bg="white",
+            fg="black",
+            insertbackground="black"
+        )
+        field_name_entry.pack(pady=(5, 10), padx=20, anchor="w")
 
         fields = []
         entries = {}
 
-        # Add field function
         def add_field():
             field_name = field_name_entry.get().strip()
             if field_name and field_name not in fields:
                 fields.append(field_name)
-                Label(form_frame, text=field_name, font=("Segoe UI", 11), fg="white", bg="#1e1e2f").pack(anchor="w", padx=20, pady=(10, 0))
-                entry = Entry(form_frame, font=("Segoe UI", 11), width=28)
+                Label(
+                    form_frame,
+                    text=field_name,
+                    font=("Segoe UI", 11),
+                    fg="white",
+                    bg="#1e1e2f"
+                ).pack(anchor="w", padx=20, pady=(10, 0))
+                entry = Entry(
+                    form_frame,
+                    font=("Segoe UI", 11),
+                    width=28,
+                    relief=FLAT,
+                    highlightthickness=1,
+                    highlightbackground="#3c3c4e",
+                    bg="white",
+                    fg="black",
+                    insertbackground="black"
+                )
                 entry.pack(padx=20, pady=(0, 10), anchor="w")
                 entries[field_name] = entry
                 field_name_entry.delete(0, END)
 
-        # Field name entry
-        Label(form_frame, text="Field Name:", font=("Segoe UI", 11), fg="white", bg="#1e1e2f").pack(anchor="w", padx=20, pady=(10, 0))
-        field_name_entry = Entry(form_frame, font=("Segoe UI", 11), width=28)
-        field_name_entry.pack(padx=20, pady=5, anchor="w")
+        ttk.Button(
+            form_frame,
+            text="➕ Add Field",
+            style="MiniBlue.TButton",
+            command=add_field
+        ).pack(padx=20, pady=(0, 20), anchor="w")
 
-        ttk.Button(form_frame, text="Add Field", style="MiniBlue.TButton", command=add_field).pack(padx=20, pady=10, anchor="w")
-
-        # Save individual
         def save_individual():
             person_data = {field: entries[field].get() for field in fields}
             self.controller.add_individual_to_model(person_data)
             form.destroy()
             self.refresh_profile_list()
 
-        ttk.Button(form_frame, text="Save", style="MiniBlue.TButton", command=save_individual).pack(padx=20, pady=20, anchor="w")
+        ttk.Button(
+            form_frame,
+            text="💾 Save Individual",
+            style="MiniBlue.TButton",
+            command=save_individual
+        ).pack(pady=30, padx=20, anchor="center")
 
         form.after(100, lambda: canvas.configure(scrollregion=canvas.bbox("all")))
+
 
     def refresh_profile_list(self):
         # Clear the current profile list from the frame
@@ -362,17 +426,19 @@ class View(Frame):
     def show_more_info(self, profile):
         detail_win = Toplevel(self)
         detail_win.title("Profile Details")
-        detail_win.geometry("400x500")
+        detail_win.geometry("400x600")
         detail_win.configure(bg="#1e1e2f")
 
+        # Header
         Label(
             detail_win,
-            text="Profile Details",
-            font=("Segoe UI", 16, "bold"),
+            text="👤 Profile Details",
+            font=("Segoe UI", 18, "bold"),
             fg="white",
             bg="#1e1e2f"
-        ).pack(pady=20)
+        ).pack(pady=(20, 10), anchor="center")
 
+        # No data fallback
         if not profile:
             Label(
                 detail_win,
@@ -383,33 +449,55 @@ class View(Frame):
             ).pack(pady=10)
             return
 
+        # Profile data
         for key, value in profile.items():
             if key == "position":
-                continue  # Skip displaying the position field
+                continue
+
+            frame = Frame(detail_win, bg="#1e1e2f")
+            frame.pack(padx=20, pady=(6, 6), anchor="w", fill="x")
 
             Label(
-                detail_win,
-                text=f"{key}: {value}",
-                font=("Segoe UI", 12),
-                fg="white",
+                frame,
+                text=f"{key}",
+                font=("Segoe UI", 11, "bold"),
+                fg="#bbbbbb",
                 bg="#1e1e2f"
-            ).pack(pady=5)
+            ).pack(anchor="w")
 
-        # Update Button
+            Label(
+                frame,
+                text=value,
+                font=("Segoe UI", 11),
+                fg="white",
+                bg="#2e2e3e",
+                padx=10,
+                pady=5,
+                relief="flat",
+                anchor="w",
+                width=30,
+            ).pack(anchor="w", pady=(2, 0))
+
+        # Separator
+        Frame(detail_win, height=2, bd=0, relief="sunken", bg="#3c3c4e").pack(fill="x", padx=20, pady=20)
+
+        # Action buttons
+        btn_frame = Frame(detail_win, bg="#1e1e2f")
+        btn_frame.pack(pady=10)
+
         ttk.Button(
-            detail_win,
-            text="Update Profile",
+            btn_frame,
+            text="✏️ Update Profile",
             style="MiniBlue.TButton",
             command=lambda: [detail_win.destroy(), self.open_update_individual_form(profile)],
-        ).pack(pady=10)
+        ).pack(pady=5, ipadx=10, anchor="center")
 
-        # Delete Button
         ttk.Button(
-            detail_win,
-            text="Delete Profile",
-            style="Danger.TButton",
+            btn_frame,
+            text="🗑️ Delete Profile",
+            style="MiniRed.TButton",
             command=lambda: [detail_win.destroy(), self.delete_individual(profile)],
-        ).pack(pady=10)
+        ).pack(pady=5, ipadx=10, anchor="center")
 
     def save_card_positions(self):
         """Save the positions of all cards along with profile data and model name to the JSON file."""
@@ -433,7 +521,7 @@ class View(Frame):
     def open_update_individual_form(self, profile):
         form = Toplevel(self)
         form.title("Update Individual")
-        form.geometry("320x600")
+        form.geometry("400x600")
         form.configure(bg="#1e1e2f")
 
         container = Frame(form, bg="#1e1e2f")
@@ -457,46 +545,50 @@ class View(Frame):
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
         canvas.bind_all("<MouseWheel>", on_mousewheel)
 
-        Label(form_frame, text="Update Individual", font=("Segoe UI", 16, "bold"), fg="white", bg="#1e1e2f").pack(pady=(15, 5), anchor="w", padx=20)
+        Label(
+            form_frame,
+            text="✏️ Update Individual",
+            font=("Segoe UI", 18, "bold"),
+            fg="white",
+            bg="#1e1e2f"
+        ).pack(pady=(20, 10), anchor="w", padx=20)
 
         fields = [k for k in profile.keys() if k != "position"]
         entries = {}
 
         for field in fields:
             Label(form_frame, text=field, font=("Segoe UI", 11), fg="white", bg="#1e1e2f").pack(anchor="w", padx=20, pady=(10, 0))
-            entry = Entry(form_frame, font=("Segoe UI", 11), width=28)
+            entry = Entry(form_frame, font=("Segoe UI", 11), width=28, relief=FLAT, highlightthickness=1, highlightbackground="#3c3c4e", bg="white", fg="black", insertbackground="black")
             entry.insert(0, profile[field])
             entry.pack(padx=20, pady=(0, 10), anchor="w")
             entries[field] = entry
 
-        # Add new field support
-        Label(form_frame, text="Add New Field:", font=("Segoe UI", 11), fg="white", bg="#1e1e2f").pack(anchor="w", padx=20, pady=(10, 0))
-        new_field_entry = Entry(form_frame, font=("Segoe UI", 11), width=28)
-        new_field_entry.pack(padx=20, pady=5, anchor="w")
+        Label(form_frame, text="Add New Field:", font=("Segoe UI", 11), fg="#cccccc", bg="#1e1e2f").pack(anchor="w", padx=20, pady=(15, 0))
+
+        new_field_entry = Entry(form_frame, font=("Segoe UI", 11), width=28, relief=FLAT, highlightthickness=1, highlightbackground="#3c3c4e", bg="white", fg="black", insertbackground="black")
+        new_field_entry.pack(padx=20, pady=(5, 10), anchor="w")
 
         def add_field():
             new_field = new_field_entry.get().strip()
             if new_field and new_field not in entries:
                 Label(form_frame, text=new_field, font=("Segoe UI", 11), fg="white", bg="#1e1e2f").pack(anchor="w", padx=20, pady=(10, 0))
-                entry = Entry(form_frame, font=("Segoe UI", 11), width=28)
+                entry = Entry(form_frame, font=("Segoe UI", 11), width=28, relief=FLAT, highlightthickness=1, highlightbackground="#3c3c4e", bg="white", fg="black", insertbackground="black")
                 entry.pack(padx=20, pady=(0, 10), anchor="w")
                 entries[new_field] = entry
                 new_field_entry.delete(0, END)
 
-        ttk.Button(form_frame, text="Add Field", style="MiniBlue.TButton", command=add_field).pack(padx=20, pady=10, anchor="w")
+        ttk.Button(form_frame, text="➕ Add Field", style="MiniBlue.TButton", command=add_field).pack(padx=20, pady=10, anchor="w")
 
-        # Save updates
         def save_updated_profile():
             updated_data = {field: entries[field].get() for field in entries}
-            updated_data["position"] = profile.get("position", [20, 20])  # Preserve existing position if any
+            updated_data["position"] = profile.get("position", [20, 20])
             self.controller.update_individual(profile, updated_data)
             form.destroy()
             self.refresh_profile_list()
 
-        ttk.Button(form_frame, text="Save", style="MiniBlue.TButton", command=save_updated_profile).pack(padx=20, pady=20, anchor="w")
+        ttk.Button(form_frame, text="💾 Save", style="MiniBlue.TButton", command=save_updated_profile).pack(padx=20, pady=30, anchor="center")
 
         form.after(100, lambda: canvas.configure(scrollregion=canvas.bbox("all")))
-
 
     def delete_individual(self, profile):
         confirm = messagebox.askyesno("Confirm Delete", "Are you Sure you Want to Delete This Profile?")
@@ -512,6 +604,97 @@ class View(Frame):
 
             # Notify the user that the profile was deleted
             messagebox.showinfo("Deleted", "Profile Deleted Successfully.")
+
+    def web_scaper(self):
+        form = Toplevel(self)
+        form.title("Web Scraper")
+        form.geometry("650x550")
+        form.configure(bg="#1e1e2f")
+
+        container = Frame(form, bg="#1e1e2f")
+        container.pack(fill=BOTH, expand=True)
+
+        canvas = Canvas(container, bg="#1e1e2f", highlightthickness=0)
+        canvas.pack(side=LEFT, fill=BOTH, expand=True)
+
+        scrollbar = Scrollbar(container, orient=VERTICAL, command=canvas.yview)
+        scrollbar.pack(side=RIGHT, fill=Y)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        form_frame = Frame(canvas, bg="#1e1e2f")
+        canvas.create_window((0, 0), window=form_frame, anchor="nw")
+
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        form_frame.bind("<Configure>", on_frame_configure)
+
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind_all("<MouseWheel>", on_mousewheel)
+
+        Label(form_frame, text="🌐 Web Scraper", font=("Segoe UI", 18, "bold"),
+            fg="white", bg="#1e1e2f").pack(pady=(20, 10), anchor="center")
+
+        Label(form_frame, text="Enter a URL to Scrape Data From:",
+            font=("Segoe UI", 13), fg="#bbbbbb", bg="#1e1e2f").pack(pady=(5, 5), anchor="w", padx=20)
+
+        self.url_entry = Entry(form_frame, font=("Segoe UI", 12), width=45,
+                           bg="#2c2c3c", fg="white", insertbackground="white", relief=FLAT)
+        self.url_entry.pack(pady=(5, 10), padx=20)
+
+        Label(form_frame,
+          text="⚠️ Please Ensure you Have Permission to Scrape this Site. We Respect robots.txt.",
+          font=("Segoe UI", 10, "italic"),
+          fg="#ff6666", bg="#1e1e2f", wraplength=440, justify=LEFT).pack(pady=(0, 15), padx=20, anchor="w")
+
+        go_button = ttk.Button(form_frame, text="🔍 Go", style="MiniBlue.TButton", command=self.scrape_data)
+        go_button.pack(pady=(0, 20), padx=20)
+
+        Label(form_frame, text="Scraped Data:", font=("Segoe UI", 13, "bold"),
+          fg="white", bg="#1e1e2f").pack(pady=(5, 5), anchor="w", padx=20)
+
+        result_container = Frame(form_frame, bg="#1e1e2f")
+        result_container.pack(padx=20, pady=10, fill=BOTH, expand=True)
+
+        self.result_text = Text(result_container,
+                            font=("Segoe UI", 11),
+                            wrap=WORD,
+                            bg="#2a2a3d",
+                            fg="white",
+                            insertbackground="white",
+                            relief=FLAT,
+                            height=15)
+        self.result_text.pack(side=LEFT, fill=BOTH, expand=True)
+
+        result_scroll = Scrollbar(result_container, command=self.result_text.yview)
+        result_scroll.pack(side=RIGHT, fill=Y)
+        self.result_text.config(yscrollcommand=result_scroll.set)
+
+        self.result_text.insert(END, "Results Will Appear Here After Scraping.")
+        self.result_text.config(state=DISABLED)
+
+    def scrape_data(self):
+        url = self.url_entry.get().strip()
+
+        if not url:
+            messagebox.showerror("Error", "Please Enter a Valid URL!")
+            return
+
+
+        scraped_data = self.controller.web_scraper(url)
+
+        if scraped_data:
+            self.display_data(scraped_data)
+        else:
+            self.display_data("❌ Failed to Scrape the Page or No Data Found.")
+
+
+    def display_data(self, data):
+        self.result_text.config(state=NORMAL)
+        self.result_text.delete(1.0, END)
+
+        self.result_text.insert(END, f"✅ What We Extracted:\n\n{data}")
+        self.result_text.config(state=DISABLED)
 
     def go_back_to_home(self):
         """Handle the back navigation to home screen."""
