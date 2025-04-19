@@ -8,6 +8,10 @@ from collections import defaultdict
 
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast
 
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
 
 class Model:
     def __init__(self):
@@ -381,5 +385,27 @@ class Model:
         cleaned_email = self.clean_generated_email(generated_email)
         # Return the generated email
         return cleaned_email
+    
+    def send_email(self, user_email, user_password, recipient_email, subject, message):
+        """Send email using SMTP."""
+        try:
+            server = smtplib.SMTP("smtp.gmail.com", 587)
+            server.starttls() 
+            server.login(user_email, user_password) 
+
+            msg = MIMEMultipart()
+            msg['From'] = user_email
+            msg['To'] = recipient_email
+            msg['Subject'] = subject
+
+            msg.attach(MIMEText(message, 'plain'))
+
+            server.sendmail(user_email, recipient_email, msg.as_string())
+            server.quit()
+            return "Email Sent Successfully!"
+
+        except Exception as e:
+            print (e)
+            return "Couldn't Send Email, Please Try Again."
 
 

@@ -753,7 +753,14 @@ class View(Frame):
             text="Back to Home",
             style="Blue.TButton",
             command=self.go_back_to_home
-        ).pack(pady=(500, 10), padx=15, fill="x")
+        ).pack(side="bottom", pady=(10, 5), padx=15, fill="x")
+
+        ttk.Button(
+            sidebar,
+            text="Send Email",
+            style="Blue.TButton",
+            command=self.send_email
+        ).pack(side="bottom", pady=(5, 10), padx=15, fill="x")
 
         # Main simulation area
         simulation_area = Frame(main_container, bg="#1e1e2f")
@@ -922,7 +929,7 @@ class View(Frame):
             command=lambda rv=recommended_vectors, p=profile: self.attack_profile(rv, p),
             style="MiniGreen.TButton",
             width=18
-            ).pack(pady=8)
+        ).pack(pady=8)
 
     def select_for_attack(self, profile):
         preview_fields = [(k, v) for k, v in profile.items() if k != "position"][:2]
@@ -1021,6 +1028,104 @@ class View(Frame):
         self.email_textbox.delete(1.0, "end")  
         self.email_textbox.insert("1.0", cleaned_email)  
         self.email_textbox.config(state="disabled") 
+
+    def send_email(self):   
+        open_email_window = Toplevel(self)
+        open_email_window.title("Send Generated Email to Victim")
+        open_email_window.geometry("520x720")  
+        open_email_window.configure(bg="#1e1e2f")
+
+        Label(
+            open_email_window,
+            text="Please Enter Your Gmail and Password, and Fill Out Other Fields:",
+            font=("Segoe UI", 16, "bold"),
+            fg="white",
+            bg="#1e1e2f"
+        ).pack(pady=(20, 10))
+
+        Label(
+            open_email_window,
+            text="Your Email",
+            font=("Segoe UI", 12),
+            fg="white",
+            bg="#1e1e2f"
+        ).pack(pady=(10, 5))
+        user_email_entry = Entry(open_email_window, width=40, font=("Segoe UI", 12))
+        user_email_entry.pack(pady=(5, 10))
+
+        Label(
+            open_email_window,
+            text="Your Password",
+            font=("Segoe UI", 12),
+            fg="white",
+            bg="#1e1e2f"
+        ).pack(pady=(10, 5))
+        user_password_entry = Entry(open_email_window, width=40, show="*", font=("Segoe UI", 12))
+        user_password_entry.pack(pady=(5, 10))
+
+        Label(
+            open_email_window,
+            text="Recipient's Email",
+            font=("Segoe UI", 12),
+            fg="white",
+            bg="#1e1e2f"
+        ).pack(pady=(10, 5))
+        recipient_email_entry = Entry(open_email_window, width=40, font=("Segoe UI", 12))
+        recipient_email_entry.pack(pady=(5, 10))
+
+        Label(
+            open_email_window,
+            text="Subject",
+            font=("Segoe UI", 12),
+            fg="white",
+            bg="#1e1e2f"
+        ).pack(pady=(10, 5))
+        subject_entry = Entry(open_email_window, width=40, font=("Segoe UI", 12))
+        subject_entry.pack(pady=(5, 10))
+
+        Label(
+            open_email_window,
+            text="Message",
+            font=("Segoe UI", 12),
+            fg="white",
+            bg="#1e1e2f"
+        ).pack(pady=(10, 5))
+
+        message_text = Text(open_email_window, width=40, height=8, font=("Segoe UI", 12), wrap="word")
+        message_text.pack(pady=(5, 10))
+
+        message_scrollbar = Scrollbar(open_email_window, command=message_text.yview)
+        message_scrollbar.pack(side="right", fill="y")
+        message_text.config(yscrollcommand=message_scrollbar.set)
+
+        def on_send():
+            user_email = user_email_entry.get()
+            user_password = user_password_entry.get()
+            recipient_email = recipient_email_entry.get()
+            subject = subject_entry.get()
+            message = message_text.get("1.0", "end-1c")
+
+            if not (user_email and user_password and recipient_email and subject and message):
+                messagebox.showwarning("Input Error", "All Fields Must be Filled Out.")
+                return
+
+            response = self.controller.send_email(user_email, user_password, recipient_email, subject, message)
+
+            messagebox.showinfo("Email Status", response)
+            
+        ttk.Button(
+            open_email_window,
+            text="Send Email",
+            style="MiniBlue.TButton",
+            command=on_send
+        ).pack(pady=20)
+
+        ttk.Button(
+            open_email_window,
+            text="Close",
+            style="MiniRed.TButton",
+            command=open_email_window.destroy
+        ).pack(pady=20)
 
     def go_back_to_home(self):
         """Handle the back navigation to home screen."""

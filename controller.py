@@ -82,3 +82,7 @@ class Controller:
             callback(generated_email)
         except Exception as e:
             callback("An Error Occured Generating Email, Please Try Again Layer.")
+
+    def send_email(self, user_email, user_password, recipient_email, subject, message):
+        result = self.model.send_email(user_email, user_password, recipient_email, subject, message)
+        return result
