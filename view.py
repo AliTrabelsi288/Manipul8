@@ -2,7 +2,6 @@ from tkinter import Frame, Label, Toplevel, Entry, Button, Canvas, Scrollbar, BO
 from tkinter import ttk
 from tkinter import filedialog
 import os
-import re
 
 class View(Frame):
     def __init__(self, parent, os):
