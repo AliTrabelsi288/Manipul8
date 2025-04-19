@@ -1,11 +1,12 @@
-import json
 from tkinter import Frame, Label, Toplevel, Entry, Button, Canvas, Scrollbar, BOTH, LEFT, RIGHT, Y, VERTICAL, END, messagebox, FLAT, NORMAL, DISABLED, Text, WORD
 from tkinter import ttk
 from tkinter import filedialog
+import os
+import re
 
 class View(Frame):
     def __init__(self, parent, os):
-        super().__init__(parent, width=900, height=700, bg="#1e1e2f")
+        super().__init__(parent, width=1100, height=700, bg="#1e1e2f")
         self.controller = None
         self.os = os
         self.pack_propagate(False)
@@ -77,8 +78,7 @@ class View(Frame):
         self.build_model_options_screen()
 
     def on_simulate_click(self):
-        if self.controller:
-            self.controller.handle_simulate_button()
+        self.build_simulation_open_file_screen()
 
     def build_model_options_screen(self):
         for widget in self.winfo_children():
@@ -695,6 +695,333 @@ class View(Frame):
 
         self.result_text.insert(END, f"✅ What We Extracted:\n\n{data}")
         self.result_text.config(state=DISABLED)
+
+    def build_simulation_open_file_screen(self):
+        open_model_window = Toplevel(self)
+        open_model_window.title("Open Existing Model")
+        open_model_window.geometry("500x150")
+        open_model_window.configure(bg="#1e1e2f")
+
+        Label(
+            open_model_window,
+            text="Open Existing Model to Begin Simulation",
+            font=("Segoe UI", 20, "bold"),
+            fg="white",
+            bg="#1e1e2f"
+        ).pack(pady=(20, 10))
+
+        def browse_and_load_model():
+            filename = filedialog.askopenfilename(filetypes=(("JSON Files", "*.json"),))
+            if filename and self.controller:
+                self.controller.load_existing_model(filename)
+                open_model_window.destroy()
+                self.show_simulation_screen(filename)
+
+        button_frame = Frame(open_model_window, bg="#1e1e2f")
+        button_frame.pack(pady=20)
+
+        ttk.Button(button_frame, text="Browse", style="MiniBlue.TButton", command=browse_and_load_model, width=18).pack(side="left", padx=10)
+        ttk.Button(button_frame, text="Cancel", style="MiniBlue.TButton", command=open_model_window.destroy, width=10).pack(side="left", padx=10)
+
+
+    def show_simulation_screen(self, model_path):
+        # Clear existing widgets
+        for widget in self.winfo_children():
+            widget.destroy()
+
+        model_name = os.path.basename(model_path)
+
+        # Main container
+        main_container = Frame(self, bg="#1e1e2f")
+        main_container.pack(fill="both", expand=True)
+
+        # Sidebar
+        sidebar = Frame(main_container, bg="#2b2b40", width=250)
+        sidebar.pack(side="left", fill="y", padx=15, pady=15)
+
+        Label(
+            sidebar,
+            text=f"Simulation: {model_name}",
+            font=("Segoe UI", 18, "bold"),
+            fg="white",
+            bg="#2b2b40",
+            wraplength=180,
+            justify="center"
+        ).pack(pady=(30, 40))
+
+        ttk.Button(
+            sidebar,
+            text="Back to Home",
+            style="Blue.TButton",
+            command=self.go_back_to_home
+        ).pack(pady=(500, 10), padx=15, fill="x")
+
+        # Main simulation area
+        simulation_area = Frame(main_container, bg="#1e1e2f")
+        simulation_area.pack(side="left", fill="both", expand=True, padx=20, pady=20)
+
+        # Left section for available individuals
+        left_section = Frame(simulation_area, bg="#1e1e2f", width=350)
+        left_section.pack(side="left", fill="y", padx=15, pady=15)
+
+        Label(left_section, text="Available Individuals", fg="white", bg="#1e1e2f", font=("Segoe UI", 14, "bold")).pack(pady=15)
+
+        scroll_container = Frame(left_section, bg="#1e1e2f")
+        scroll_container.pack(fill="both", expand=True)
+
+        canvas = Canvas(scroll_container, bg="#1e1e2f", highlightthickness=0, width=320)
+        scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        scrollable_frame = Frame(canvas, bg="#1e1e2f")
+        self.all_profiles_frame = scrollable_frame
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+        self.render_simulation_profile_cards(self.all_profiles_frame, self.controller.get_all_profiles())
+
+        # Right section for selected attackers & results
+        right_section = Frame(simulation_area, bg="#1e1e2f", width=450)
+        right_section.pack(side="left", fill="y", padx=15, pady=15)  
+
+        # Recommendation Engine section
+        selected_attackers_frame = Frame(right_section, bg="#1e1e2f")
+        selected_attackers_frame.pack(fill="x", pady=(10, 5))
+
+        Label(selected_attackers_frame, text="Recommendation Engine", fg="white", bg="#1e1e2f", font=("Segoe UI", 14, "bold")).pack(pady=15)
+
+        self.selected_attackers_frame = selected_attackers_frame
+
+        # Results Frame for generated email
+        self.results_frame = Frame(right_section, bg="#1e1e2f", height=300) 
+        self.results_frame.pack(fill="both", expand=False, pady=(5, 15))  
+
+        Label(self.results_frame, text="Generate Attack", fg="white", bg="#1e1e2f", font=("Segoe UI", 14, "bold")).pack(pady=15)
+
+        self.email_textbox = Text(
+            self.results_frame,
+            bg="#2a2a3c",
+            fg="white",
+            wrap="word",
+            font=("Segoe UI", 12),
+            width=50,
+            height=20,
+            padx=10,
+            pady=10,
+            bd=0,
+            state="disabled"  
+        )
+        self.email_textbox.pack(fill="both", padx=10, pady=15)
+
+    def render_simulation_profile_cards(self, parent_frame, profiles):
+        for widget in parent_frame.winfo_children():
+            if isinstance(widget, Frame):
+                widget.destroy()
+
+        for idx, profile in enumerate(profiles):
+            preview_fields = [(k, v) for k, v in profile.items() if k != "position"][:2]
+            preview_text = "\n".join(f"{k}: {v}" for k, v in preview_fields)
+
+            card = Frame(
+                parent_frame,
+                bg="#2a2a3c",
+                bd=1,
+                relief="solid",
+                padx=12,
+                pady=15
+            )
+            card.pack(pady=12, padx=12, fill="x")
+
+            Label(
+                card,
+                text=preview_text or "No Data",
+                font=("Segoe UI", 11),
+                fg="white",
+                bg="#2a2a3c",
+                justify="left",
+                anchor="w",
+                wraplength=240
+            ).pack(pady=8, fill="x")
+
+            ttk.Button(
+                card,
+                text="Attack",
+                command=lambda p=profile: self.select_for_attack(p),
+                style="MiniBlue.TButton",
+                width=18
+            ).pack(pady=8)
+
+    def select_for_attack(self, profile):
+        preview_fields = [(k, v) for k, v in profile.items() if k != "position"][:2]
+        preview_text = "\n".join(f"{k}: {v}" for k, v in preview_fields)
+
+        card = Frame(
+            self.scrollable_frame,
+            bg="#3a3a50",
+            bd=2,
+            relief="groove",
+            height=50,   
+            width=100     
+        )
+        card.pack(pady=5, padx=10, fill="x")
+        card.pack_propagate(False) 
+
+        Label(
+            card,
+            text=preview_text,
+            font=("Segoe UI", 11),
+            fg="white",
+            bg="#3a3a50",
+            justify="left",
+            anchor="w",
+            wraplength=240
+        ).pack(pady=8, fill="x")
+
+        recommended_vectors = self.controller.recommend_vectors(profile)
+
+        if recommended_vectors:
+            Label(
+                card,
+                text="Top Vectors:",
+                font=("Segoe UI", 10, "bold"),
+                fg="#b0b0ff",
+                bg="#3a3a50",
+                anchor="w"
+            ).pack(pady=(10, 2), fill="x", padx=5)
+
+            for vector in recommended_vectors[:3]: 
+                Label(
+                    card,
+                    text=f"• {vector}",
+                    font=("Segoe UI", 10),
+                    fg="white",
+                    bg="#3a3a50",
+                    anchor="w",
+                    wraplength=240,
+                    justify="left"
+                ).pack(fill="x", padx=12)
+
+        ttk.Button(
+            card,
+            text="Remove",
+            command=card.destroy,
+            style="MiniRed.TButton",
+            width=18
+        ).pack(pady=8)
+
+        ttk.Button(
+            card,
+            text="Attack Profile",
+            command=lambda rv=recommended_vectors, p=profile: self.attack_profile(rv, p),
+            style="MiniGreen.TButton",
+            width=18
+            ).pack(pady=8)
+
+    def select_for_attack(self, profile):
+        preview_fields = [(k, v) for k, v in profile.items() if k != "position"][:2]
+        preview_text = "\n".join(f"{k}: {v}" for k, v in preview_fields)
+
+        card = Frame(
+            self.selected_attackers_frame,
+            bg="#3a3a50",
+            bd=1,
+            relief="solid",
+            padx=12,
+            pady=10,
+            height=150,  
+            width=420  
+        )
+        card.pack(pady=12, padx=12, fill="x")
+        card.pack_propagate(False) 
+
+        canvas = Canvas(card, bg="#3a3a50", bd=0, highlightthickness=0)
+        canvas.pack(side="left", fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(card, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side="right", fill="y")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        content_frame = Frame(canvas, bg="#3a3a50")
+        canvas.create_window((0, 0), window=content_frame, anchor="nw")
+
+        content_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        Label(
+            content_frame,
+            text=preview_text,
+            font=("Segoe UI", 9),  
+            fg="white",
+            bg="#3a3a50",
+            justify="left",
+            anchor="w",
+            wraplength=240
+        ).pack(pady=(5, 2), fill="x")
+
+        recommended_vectors = self.controller.recommend_vectors(profile)
+
+        if recommended_vectors:
+            Label(
+                content_frame,
+                text="Top Vectors:",
+                font=("Segoe UI", 9, "bold"),
+                fg="#b0b0ff",
+                bg="#3a3a50",
+                anchor="w"
+            ).pack(pady=(5, 2), fill="x", padx=5)
+            
+            for vector in recommended_vectors[:5]:  
+                Label(
+                    content_frame,
+                    text=f"• {vector}",
+                    font=("Segoe UI", 8), 
+                    fg="white",
+                    bg="#3a3a50",
+                    anchor="w",
+                    wraplength=240,
+                    justify="left"
+                ).pack(fill="x", padx=12, pady=2)
+
+        ttk.Button(
+            content_frame,
+            text="Remove",
+            command=card.destroy,
+            style="MiniRed.TButton",
+            width=16 
+        ).pack(pady=5, fill="x")
+
+        ttk.Button(
+            content_frame,
+            text="Attack Profile",
+            command=lambda rv=recommended_vectors, p=profile: self.attack_profile(rv, p),
+            style="MiniBlue.TButton",
+            width=16 
+        ).pack(pady=5, fill="x")
+
+
+    def attack_profile(self, recommended_vectors, profile):
+        selected_vector = recommended_vectors[0] if recommended_vectors else None
+
+        self.email_textbox.config(state="normal")  
+        self.email_textbox.delete("1.0", "end")   
+        self.email_textbox.insert("1.0", "Generating Phishing Email... Please Wait.")
+        self.email_textbox.config(state="disabled") 
+
+        self.controller.start_email_generation_in_background(profile, selected_vector, self.display_generated_email)
+
+    def display_generated_email(self, cleaned_email):
+
+        self.email_textbox.config(state="normal")  
+        self.email_textbox.delete(1.0, "end")  
+        self.email_textbox.insert("1.0", cleaned_email)  
+        self.email_textbox.config(state="disabled") 
 
     def go_back_to_home(self):
         """Handle the back navigation to home screen."""

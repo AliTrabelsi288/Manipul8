@@ -1,5 +1,6 @@
 from tkinter import messagebox
 import json
+import threading
 
 class Controller:
     def __init__(self, model, view):
@@ -64,3 +65,20 @@ class Controller:
 
     def handle_simulate_button(self):
         messagebox.showinfo("Simulation", "Simulation functionality not implemented yet.")
+
+    def recommend_vectors(self, profile):
+        try:
+            return self.model.recommend_social_engineering_vectors(profile)
+        except Exception as e:
+            print(f"Recommendation Error: {e}")
+            return []
+        
+    def start_email_generation_in_background(self, profile, vector, callback):
+        threading.Thread(target=self.generate_email, args=(profile, vector, callback)).start()
+
+    def generate_email(self, profile, selected_vector, callback):
+        try:
+            generated_email = self.model.generate_phishing_email(profile, selected_vector)
+            callback(generated_email)
+        except Exception as e:
+            callback("An Error Occured Generating Email, Please Try Again Layer.")

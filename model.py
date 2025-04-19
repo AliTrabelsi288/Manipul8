@@ -4,14 +4,18 @@ from bs4 import BeautifulSoup
 import re
 from collections import Counter
 from urllib.parse import urljoin
+from collections import defaultdict
+
+from transformers import GPT2LMHeadModel, GPT2TokenizerFast
 
 
 class Model:
     def __init__(self):
         self.org_data = {"model_name": "", "individuals": [], "positions": []}
         self.save_path = None
-        self.model_name = ""
-        self.view = None
+        self.view = None  
+        self.tokenizer = GPT2TokenizerFast.from_pretrained('phish_gpt2', local_files_only=True)
+        self.model = GPT2LMHeadModel.from_pretrained('phish_gpt2', local_files_only=True)
 
     def set_view(self, view):
         self.view = view
@@ -166,7 +170,6 @@ class Model:
             social_links = self.extract_social_links(soup, url)
             json_ld_data = self.get_structured_data(soup)
 
-            # Compile the extracted data
             extracted = {
                 "Full Name": full_name,
                 "DOBs": dobs[:2] or ["Not found"],
@@ -178,7 +181,6 @@ class Model:
                 "Structured Data": json_ld_data[:1] or ["No JSON-LD found"]
             }
 
-            # Format the output for easy reading
             result = "\n\n".join(
                 f"{key}:\n  - " + "\n  - ".join(
                     [json.dumps(v, indent=2) if isinstance(v, (dict, list)) else str(v)
@@ -192,3 +194,192 @@ class Model:
         except Exception as e:
             print(f"Scraping error: {e}")
             return None
+        
+    def recommend_social_engineering_vectors(self, profile):
+
+        traits = set([t.lower() for t in profile.get("traits", [])])
+    
+        try:
+            age = int(profile.get("age", 0)) 
+        except ValueError:
+            age = 0  
+
+        job = profile.get("job_title", "").lower()
+        interests = set([i.lower() for i in profile.get("interests", [])])
+        digital_footprint = set([d.lower() for d in profile.get("digital_behavior", [])])
+        emotional_flags = set([e.lower() for e in profile.get("emotions", [])]) 
+
+        attack_vectors = {
+            "Phishing: 'Exclusive Insider Report'": {
+                "traits": {"curious", "researcher", "analytical"},
+                "roles": {"analyst", "researcher", "student"},
+                "age_range": (20, 45),
+                "digital_behavior": {"reads-blogs", "opens-newsletters"},
+                "weight": 1.5
+            },
+            "Clickbait Ads: 'You Won a Prize!'": {
+                "traits": {"impulsive", "greedy"},
+                "roles": {"student", "shopper"},
+                "age_range": (15, 35),
+                "digital_behavior": {"clicks-ads", "gamer"},
+                "weight": 1.2
+            },
+            "Fake Software Update Prompt": {
+                "traits": {"tech-savvy", "developer"},
+                "roles": {"engineer", "it", "developer"},
+                "age_range": (20, 50),
+                "digital_behavior": {"downloads", "installs"},
+                "weight": 1.4
+            },
+            "Tech Support Scam": {
+                "traits": {"non-technical", "confused"},
+                "roles": {"retired", "elder"},
+                "age_range": (60, 100),
+                "digital_behavior": {"uses-desktop", "slow-response"},
+                "weight": 1.8
+            },
+            "Fake Social Media Invite": {
+                "traits": {"social", "influencer"},
+                "roles": {"marketer", "teen", "creator"},
+                "age_range": (15, 35),
+                "digital_behavior": {"high-social", "uses-instagram"},
+                "weight": 1.3
+            },
+            "Authority Impersonation": {
+                "traits": {"obedient", "rule-follower"},
+                "roles": {"admin", "employee"},
+                "age_range": (25, 60),
+                "digital_behavior": {"email-heavy"},
+                "weight": 1.6
+            },
+            "Business Email Compromise": {
+                "traits": {"decision-maker", "executive"},
+                "roles": {"ceo", "cfo", "vp"},
+                "age_range": (35, 65),
+                "digital_behavior": {"email-heavy"},
+                "weight": 1.6
+            },
+            "Romance Scam": {
+                "traits": {"lonely", "hopeful"},
+                "roles": {"retired", "single"},
+                "age_range": (40, 85),
+                "digital_behavior": {"uses-facebook", "dating-app"},
+                "weight": 1.7
+            },
+            "Generic Phishing Email": {
+                "traits": set(),
+                "roles": set(),
+                "age_range": (0, 100),
+                "digital_behavior": set(),
+                "weight": 1.0
+            }
+        }
+
+        scores = defaultdict(float)
+
+        for vector, data in attack_vectors.items():
+            score = 0
+
+            trait_matches = len(traits & data["traits"])
+            score += trait_matches * 2
+
+            for role in data["roles"]:
+                if role in job:
+                    score += 3
+                    break
+
+            if data["age_range"][0] <= age <= data["age_range"][1]:
+                score += 2
+
+            score += len(digital_footprint & data["digital_behavior"])
+
+            if "angry" in emotional_flags and "authority" in vector.lower():
+                score += 1.5
+            if "lonely" in emotional_flags and "romance" in vector.lower():
+                score += 1.5
+
+            score *= data["weight"]
+
+            if score > 0:
+                scores[vector] = score
+
+        if not scores:
+            return ["Generic Phishing Email", "Impersonation Attack"]
+
+        sorted_vectors = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        return [v[0] for v in sorted_vectors[:5]]
+    
+    def clean_generated_email(self, raw_email):
+        # Step 1: Remove 'Subject:' and 'Body:' lines completely
+        raw_email = re.sub(r"(?i)^Subject:\s*\n?", "", raw_email)
+        raw_email = re.sub(r"(?i)^Body:\s*\n?", "", raw_email)
+
+        # Step 2: Remove prompt content if mistakenly included
+        if "Subject:" in raw_email:
+            raw_email = raw_email.split("Subject:")[1]
+            raw_email = "Subject:" + raw_email
+
+        # Step 3: Clean up unwanted content and spam indicators
+        raw_email = re.sub(r"<.*?>", "", raw_email)  
+        raw_email = re.sub(r"http\S+|www\S+", "[malicious link]", raw_email)  
+        raw_email = re.sub(r"[\[\]{}|\\^~`]", "", raw_email)  
+        raw_email = re.sub(r"[-+_=]{5,}", "", raw_email)
+        raw_email = re.sub(r"(?i)delite your email.*", "", raw_email)
+
+        # Step 4: Final tidy-up
+        cleaned_email = raw_email.strip()
+
+        return cleaned_email
+    
+    def generate_phishing_email(self, profile, vector_type):
+        # Construct the prompt using profile data
+        prompt = f"""
+            You are a professional social engineer tasked with crafting a realistic, highly targeted phishing email.
+
+            Target Profile:
+            - Name: {profile.get('name', 'John Doe')}
+            - Age: {profile.get('age', 'Unknown')}
+            - Occupation: {profile.get('job_title', 'Software Engineer')}
+            - Interests: {profile.get('interests', 'Technology, AI')}
+            - Personality Traits: {profile.get('traits', 'Curious, Open-minded')}
+            - Digital Behavior: {profile.get('digital_behavior', 'Active on LinkedIn, Reads tech blogs')}
+            - Emotional State: {profile.get('emotions', 'Neutral')}
+            - Attack Vector: {vector_type}
+
+            Objective:
+            Write a persuasive phishing email tailored to this individual. The message should:
+            - Be context-aware and relevant to their profession and behavior
+            - Avoid spammy language or obvious red flags
+            - Encourage the target to click a malicious link or download a file
+            - Be written in professional, natural English
+
+            Output format:
+            Subject: <Insert realistic, relevant subject line>
+            Body:
+            <Insert body of the phishing email with clear CTA and subtle social engineering tactics>
+         """
+
+        # Tokenize the input
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+
+        # Generate email output using the model
+        outputs = self.model.generate(
+            **inputs,
+            max_new_tokens=250,              
+            temperature=0.5,                 
+            top_k=30,                       
+            top_p=0.85,                      
+            repetition_penalty=1.4,         
+            no_repeat_ngram_size=5,          
+            pad_token_id=self.tokenizer.eos_token_id,
+            early_stopping=True,
+        )
+
+        # Decode the generated output
+        generated_email = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        cleaned_email = self.clean_generated_email(generated_email)
+        # Return the generated email
+        return cleaned_email
+
+
