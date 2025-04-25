@@ -351,11 +351,10 @@ class View(Frame):
             ).pack()
             return
 
-        # Otherwise, render the profile cards
         self.render_draggable_profile_cards(profiles)
 
     def render_draggable_profile_cards(self, profiles):
-        # Store card references for later use (e.g., saving positions)
+        # Store card references for later use 
         self.card_refs = []
 
         for idx, profile in enumerate(profiles):
@@ -437,7 +436,6 @@ class View(Frame):
             bg="#1e1e2f"
         ).pack(pady=(20, 10), anchor="center")
 
-        # No data fallback
         if not profile:
             Label(
                 detail_win,
@@ -505,7 +503,7 @@ class View(Frame):
         # Update profile data with current card positions
         for idx, card in enumerate(self.card_refs):
             x, y = card.winfo_x(), card.winfo_y()
-            profiles[idx]["position"] = [x, y]  # Always overwrite with new position
+            profiles[idx]["position"] = [x, y]  
 
         # Include the model name and profiles
         model_data = {
@@ -592,16 +590,12 @@ class View(Frame):
     def delete_individual(self, profile):
         confirm = messagebox.askyesno("Confirm Delete", "Are you Sure you Want to Delete This Profile?")
         if confirm:
-            # Call the controller to remove the profile from the model (JSON)
             self.controller.delete_individual_from_model(profile)
 
-            # Remove the card reference from the list (self.card_refs)
             self.card_refs = [card for card in self.card_refs if card not in profile]
 
-            # Refresh the profile list to reflect the deletion
             self.refresh_profile_list()
 
-            # Notify the user that the profile was deleted
             messagebox.showinfo("Deleted", "Profile Deleted Successfully.")
 
     def web_scaper(self):
@@ -678,7 +672,6 @@ class View(Frame):
         if not url:
             messagebox.showerror("Error", "Please Enter a Valid URL!")
             return
-
 
         scraped_data = self.controller.web_scraper(url)
 
@@ -870,72 +863,6 @@ class View(Frame):
         preview_text = "\n".join(f"{k}: {v}" for k, v in preview_fields)
 
         card = Frame(
-            self.scrollable_frame,
-            bg="#3a3a50",
-            bd=2,
-            relief="groove",
-            height=50,   
-            width=100     
-        )
-        card.pack(pady=5, padx=10, fill="x")
-        card.pack_propagate(False) 
-
-        Label(
-            card,
-            text=preview_text,
-            font=("Segoe UI", 11),
-            fg="white",
-            bg="#3a3a50",
-            justify="left",
-            anchor="w",
-            wraplength=240
-        ).pack(pady=8, fill="x")
-
-        recommended_vectors = self.controller.recommend_vectors(profile)
-
-        if recommended_vectors:
-            Label(
-                card,
-                text="Top Vectors:",
-                font=("Segoe UI", 10, "bold"),
-                fg="#b0b0ff",
-                bg="#3a3a50",
-                anchor="w"
-            ).pack(pady=(10, 2), fill="x", padx=5)
-
-            for vector in recommended_vectors[:3]: 
-                Label(
-                    card,
-                    text=f"• {vector}",
-                    font=("Segoe UI", 10),
-                    fg="white",
-                    bg="#3a3a50",
-                    anchor="w",
-                    wraplength=240,
-                    justify="left"
-                ).pack(fill="x", padx=12)
-
-        ttk.Button(
-            card,
-            text="Remove",
-            command=card.destroy,
-            style="MiniRed.TButton",
-            width=18
-        ).pack(pady=8)
-
-        ttk.Button(
-            card,
-            text="Attack Profile",
-            command=lambda rv=recommended_vectors, p=profile: self.attack_profile(rv, p),
-            style="MiniGreen.TButton",
-            width=18
-        ).pack(pady=8)
-
-    def select_for_attack(self, profile):
-        preview_fields = [(k, v) for k, v in profile.items() if k != "position"][:2]
-        preview_text = "\n".join(f"{k}: {v}" for k, v in preview_fields)
-
-        card = Frame(
             self.selected_attackers_frame,
             bg="#3a3a50",
             bd=1,
@@ -1112,7 +1039,7 @@ class View(Frame):
             response = self.controller.send_email(user_email, user_password, recipient_email, subject, message)
 
             messagebox.showinfo("Email Status", response)
-            
+
         ttk.Button(
             open_email_window,
             text="Send Email",

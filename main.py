@@ -6,7 +6,7 @@ import threading
 import subprocess
 
 class Main():
-    _banner = ('''
+    banner = ('''
                        _                _   ___  
   /\/\    __ _  _ __  (_) _ __   _   _ | | ( _ ) 
  /    \  / _` || '_ \ | || '_ \ | | | || | / _ \ 
@@ -61,7 +61,7 @@ class Main():
             print("*** Phish_GPT2 Folder Exists, Launching ToolKit... ***")
 
     def start_up(self):
-        print("\033[92m" + self._banner + "\033[0m") 
+        print("\033[92m" + self.banner + "\033[0m") 
         print("*** Detecting Host Operating System: " + self.os_system + " ***")
         time.sleep(2)
 

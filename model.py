@@ -17,9 +17,9 @@ class Model:
     def __init__(self):
         self.org_data = {"model_name": "", "individuals": [], "positions": []}
         self.save_path = None
-        self.view = None  
         self.tokenizer = GPT2TokenizerFast.from_pretrained('phish_gpt2', local_files_only=True)
         self.model = GPT2LMHeadModel.from_pretrained('phish_gpt2', local_files_only=True)
+        self.view = None
 
     def set_view(self, view):
         self.view = view
@@ -314,29 +314,24 @@ class Model:
         return [v[0] for v in sorted_vectors[:5]]
     
     def clean_generated_email(self, raw_email):
-        # Step 1: Remove 'Subject:' and 'Body:' lines completely
         raw_email = re.sub(r"(?i)^Subject:\s*\n?", "", raw_email)
         raw_email = re.sub(r"(?i)^Body:\s*\n?", "", raw_email)
 
-        # Step 2: Remove prompt content if mistakenly included
         if "Subject:" in raw_email:
             raw_email = raw_email.split("Subject:")[1]
             raw_email = "Subject:" + raw_email
 
-        # Step 3: Clean up unwanted content and spam indicators
         raw_email = re.sub(r"<.*?>", "", raw_email)  
         raw_email = re.sub(r"http\S+|www\S+", "[malicious link]", raw_email)  
         raw_email = re.sub(r"[\[\]{}|\\^~`]", "", raw_email)  
         raw_email = re.sub(r"[-+_=]{5,}", "", raw_email)
         raw_email = re.sub(r"(?i)delite your email.*", "", raw_email)
 
-        # Step 4: Final tidy-up
         cleaned_email = raw_email.strip()
 
         return cleaned_email
     
     def generate_phishing_email(self, profile, vector_type):
-        # Construct the prompt using profile data
         prompt = f"""
             You are a professional social engineer tasked with crafting a realistic, highly targeted phishing email.
 
